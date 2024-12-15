@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp QR Code Login</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background-color: #f0f2f5;
+      }
+
+      .container {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      #qrcode {
+        margin: 20px;
+      }
+
+      #qrcode img {
+        max-width: 256px;
+        height: auto;
+      }
+
+      #status {
+        margin: 20px;
+        color: #128c7e;
+        font-weight: 500;
+      }
+
+      .button {
+        background-color: #128c7e;
+        border: none;
+        color: white;
+        padding: 12px 24px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 24px;
+        transition: background-color 0.3s ease;
+      }
+
+      .button:hover {
+        background-color: #075e54;
+      }
+
+      .loading {
+        display: none;
+        margin: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>WhatsApp Login</h1>
+      <div id="qrcode"></div>
+      <div id="status"></div>
+      <div class="loading">Memuat...</div>
+      <button
+        id="logoutButton"
+        onclick="signOut()"
+        class="button"
+        style="display: none"
+      >
+        Keluar
+      </button>
+    </div>
+
+    <script>
+      const socket = io();
+      const statusEl = document.getElementById("status");
+      const qrcodeEl = document.getElementById("qrcode");
+      const loadingEl = document.querySelector(".loading");
+      const logoutButton = document.getElementById("logoutButton");
+
+      // Menangani event 'qr'
+      socket.on("qr", (qrCode) => {
+        qrcodeEl.innerHTML = `<img src="${qrCode}" alt="QR Code WhatsApp">`;
+        statusEl.textContent =
+          "Scan QR code menggunakan WhatsApp di ponsel Anda";
+        loadingEl.style.display = "none";
+        logoutButton.style.display = "none"; // Sembunyikan tombol "Keluar"
+      });
+
+      // Menangani event 'ready'
+      socket.on("ready", (message) => {
+        qrcodeEl.innerHTML = "";
+        statusEl.textContent = message;
+        loadingEl.style.display = "none";
+        logoutButton.style.display = "inline-block"; // Tampilkan tombol "Keluar"
+      });
+
+      // Menangani event 'status'
+      socket.on("status", (data) => {
+        const { status } = data;
+        console.log("Status koneksi:", status);
+
+        if (status === "connecting") {
+          loadingEl.style.display = "block";
+          statusEl.textContent = "Menghubungkan ke WhatsApp...";
+          qrcodeEl.innerHTML = "";
+          logoutButton.style.display = "none";
+        } else if (status === "qr") {
+          // QR sudah ditangani oleh event 'qr'
+          loadingEl.style.display = "none";
+        } else if (status === "connected") {
+          // 'ready' sudah ditangani oleh event 'ready'
+          loadingEl.style.display = "none";
+        } else if (status === "disconnected") {
+          qrcodeEl.innerHTML = "";
+          statusEl.textContent =
+            "Terputus dari WhatsApp. Silakan refresh halaman.";
+          logoutButton.style.display = "none";
+          loadingEl.style.display = "none";
+        }
+      });
+
+      // Menangani event 'connect_error' atau 'disconnect'
+      socket.on("connect_error", () => {
+        statusEl.textContent = "Terjadi kesalahan koneksi.";
+        loadingEl.style.display = "none";
+      });
+
+      socket.on("disconnect", () => {
+        statusEl.textContent = "Terputus dari server.";
+        loadingEl.style.display = "none";
+        qrcodeEl.innerHTML = "";
+        logoutButton.style.display = "none";
+      });
+
+      async function signOut() {
+        try {
+          loadingEl.style.display = "block";
+          statusEl.textContent = "Proses sign-out...";
+          const response = await fetch("/sign-out");
+          const data = await response.json();
+
+          if (data.status) {
+            statusEl.textContent = data.message;
+            qrcodeEl.innerHTML = "";
+            logoutButton.style.display = "none";
+          } else {
+            statusEl.textContent = "Gagal keluar dari WhatsApp";
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          statusEl.textContent = "Terjadi kesalahan sistem";
+        } finally {
+          loadingEl.style.display = "none";
+        }
+      }
+    </script>
+  </body>
+</html>
