@@ -61,7 +61,22 @@
 
       .loading {
         display: none;
-        margin: 20px;
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #128c7e;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -69,8 +84,8 @@
     <div class="container">
       <h1>WhatsApp Login</h1>
       <div id="qrcode"></div>
-      <div id="status"></div>
-      <div class="loading">Memuat...</div>
+      <div id="status">Menunggu QR Code...</div>
+      <div class="loading"></div>
       <button
         id="logoutButton"
         onclick="signOut()"
@@ -109,7 +124,6 @@
       socket.on("status", (data) => {
         const { status } = data;
         console.log("Status koneksi:", status);
-
         if (status === "connecting") {
           loadingEl.style.display = "block";
           statusEl.textContent = "Menghubungkan ke WhatsApp...";
@@ -131,17 +145,37 @@
       });
 
       // Menangani event 'connect_error' atau 'disconnect'
-      socket.on("connect_error", () => {
-        statusEl.textContent = "Terjadi kesalahan koneksi.";
+      socket.on("connect_error", (error) => {
+        console.error("Connection error:", error);
+        statusEl.textContent = `Terjadi kesalahan koneksi: ${error.message}`;
         loadingEl.style.display = "none";
       });
 
+      // Tambahkan retry connection
+      let retryCount = 0;
+      const maxRetries = 3;
+
       socket.on("disconnect", () => {
-        statusEl.textContent = "Terputus dari server.";
-        loadingEl.style.display = "none";
-        qrcodeEl.innerHTML = "";
-        logoutButton.style.display = "none";
+        statusEl.textContent =
+          "Terputus dari server. Mencoba menghubungkan kembali...";
+
+        if (retryCount < maxRetries) {
+          setTimeout(() => {
+            socket.connect();
+            retryCount++;
+          }, 2000);
+        } else {
+          statusEl.textContent =
+            "Gagal menghubungkan kembali. Silakan refresh halaman.";
+        }
       });
+
+      // socket.on("disconnect", () => {
+      //   statusEl.textContent = "Terputus dari server.";
+      //   loadingEl.style.display = "none";
+      //   qrcodeEl.innerHTML = "";
+      //   logoutButton.style.display = "none";
+      // });
 
       async function signOut() {
         try {
