@@ -6,7 +6,7 @@ import {
   makeWASocket,
   DisconnectReason,
   useMultiFileAuthState,
-} from "@whiskeysockets/baileys";
+} from "baileys";
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
